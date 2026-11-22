@@ -102,12 +102,25 @@ jobs:
         if: steps.state.outputs.down != 'true'
         env:
           NAME: ${{ steps.state.outputs.name }}
+          INVOKERS: ${{ secrets.SERVICE_INVOKERS }}
         run: |
-          gcloud run services replace "$FILE" --region "$REGION" --quiet
+          # platform: is ours (who may call it), not Cloud Run's.
+          yq 'del(.platform)' "$FILE" > "$RUNNER_TEMP/service.yaml"
+          gcloud run services replace "$RUNNER_TEMP/service.yaml" --region "$REGION" --quiet
+          # Who may call it, set every deploy (removed callers lose access): everyone when public,
+          # else the list the platform keeps in SERVICE_INVOKERS (a secret: it holds testers' emails).
           if [ "$(yq '.metadata.labels.public' "$FILE")" = "true" ]; then
-            gcloud run services add-iam-policy-binding "$NAME" --region "$REGION" \
-              --member=allUsers --role=roles/run.invoker --quiet > /dev/null
+            members='["allUsers"]'
+          else
+            key="${FILE#apps/}" && key="${key%.yaml}"
+            members=$(jq -c --arg k "$key" '.[$k] // []' <<< "${INVOKERS:-null}")
           fi
+          jq -n --argjson m "$members" \
+            '{bindings: (if ($m | length) > 0 then [{role: "roles/run.invoker", members: $m}] else [] end)}' \
+            > "$RUNNER_TEMP/policy.json"
+          gcloud run services set-iam-policy "$NAME" "$RUNNER_TEMP/policy.json" --region "$REGION" --quiet > /dev/null
+          # Count only: the log is public.
+          echo "$NAME: $(jq -r 'if .bindings == [] then "nobody can call it" elif .bindings[0].members == ["allUsers"] then "public" else "internal, \(.bindings[0].members | length) allowed callers" end' "$RUNNER_TEMP/policy.json")" >> "$GITHUB_STEP_SUMMARY"
           url=$(gcloud run services describe "$NAME" --region "$REGION" --format='value(status.url)')
           echo "$NAME: $url" >> "$GITHUB_STEP_SUMMARY"
       # The public URL is BETTER_AUTH_URL (auth needs it to match). A custom host gets a domain mapping
@@ -119,6 +132,14 @@ jobs:
           HOST: ${{ steps.state.outputs.host }}
         run: |
           case "$HOST" in ""|*.run.app) exit 0 ;; esac
+          # Internal services get no domain; remove one left from when the service was public.
+          if [ "$(yq '.metadata.labels.public' "$FILE")" != "true" ]; then
+            if gcloud beta run domain-mappings describe --domain "$HOST" --region "$REGION" > /dev/null 2>&1; then
+              gcloud beta run domain-mappings delete --domain "$HOST" --region "$REGION" --quiet
+              echo "$HOST: mapping removed (service is internal)" >> "$GITHUB_STEP_SUMMARY"
+            fi
+            exit 0
+          fi
           if gcloud beta run domain-mappings describe --domain "$HOST" --region "$REGION" > /dev/null 2>&1; then
             echo "$HOST: mapped" >> "$GITHUB_STEP_SUMMARY"
           else
