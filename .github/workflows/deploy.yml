@@ -1,0 +1,90 @@
+name: deploy
+
+on:
+  push:
+    branches: [main]
+    paths: ["apps/**.yaml"]
+  workflow_dispatch:
+    inputs:
+      files:
+        description: "Space-separated service files, e.g. apps/wildcard/game/prod.yaml"
+        required: true
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      targets: ${{ steps.list.outputs.targets }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - id: list
+        env:
+          INPUT: ${{ inputs.files }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          if [ -n "$INPUT" ]; then
+            files="$INPUT"
+          elif [ -z "${BEFORE//0/}" ]; then
+            files=$(git ls-files 'apps/*/*/*.yaml')
+          else
+            files=$(git diff --name-only --diff-filter=AM "$BEFORE" "$GITHUB_SHA" -- 'apps/*/*/*.yaml')
+          fi
+          for f in $files; do
+            [[ "$f" =~ ^apps/[a-z0-9-]+/[a-z0-9-]+/(dev|prod)\.yaml$ && -f "$f" ]] || { echo "::error::Bad path: $f"; exit 1; }
+          done
+          echo "targets=$(echo "$files" | tr ' ' '\n' | jq -Rsc 'split("\n") | map(select(length > 0) | {file: ., env: (split("/")[3] | rtrimstr(".yaml"))})')" >> "$GITHUB_OUTPUT"
+
+  apply:
+    needs: changes
+    if: needs.changes.outputs.targets != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJson(needs.changes.outputs.targets) }}
+    # prod has required reviewers (set by Terraform), so every prod change waits for approval.
+    environment: ${{ matrix.env }}
+    concurrency:
+      group: ${{ matrix.file }}
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      FILE: ${{ matrix.file }}
+      REGION: ${{ vars.GCP_REGION }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ vars.WIF_PROVIDER }}
+          service_account: ${{ vars.DEPLOY_SA }}
+      - uses: google-github-actions/setup-gcloud@v3
+        with:
+          install_components: beta # domain mappings
+      - name: Apply
+        run: |
+          name=$(yq '.metadata.name' "$FILE")
+          gcloud run services replace "$FILE" --region "$REGION" --quiet
+          if [ "$(yq '.metadata.labels.public' "$FILE")" = "true" ]; then
+            gcloud run services add-iam-policy-binding "$name" --region "$REGION" \
+              --member=allUsers --role=roles/run.invoker --quiet > /dev/null
+          fi
+          url=$(gcloud run services describe "$name" --region "$REGION" --format='value(status.url)')
+          echo "$name: $url" >> "$GITHUB_STEP_SUMMARY"
+      # The public URL is BETTER_AUTH_URL (auth needs it to match). A custom host gets a domain mapping
+      # once; needs the deployer as a Search Console owner of the domain and a CNAME to ghs.googlehosted.com.
+      - name: Domain mapping
+        run: |
+          name=$(yq '.metadata.name' "$FILE")
+          host=$(yq '.spec.template.spec.containers[0].env[] | select(.name == "BETTER_AUTH_URL") | .value' "$FILE" | sed -E 's#^https://##; s#/.*$##')
+          case "$host" in ""|*.run.app) exit 0 ;; esac
+          if gcloud beta run domain-mappings describe --domain "$host" --region "$REGION" > /dev/null 2>&1; then
+            echo "$host: mapped" >> "$GITHUB_STEP_SUMMARY"
+          else
+            gcloud beta run domain-mappings create --service "$name" --domain "$host" --region "$REGION" --quiet
+            echo "$host: mapping created (certificate can take up to a few hours)" >> "$GITHUB_STEP_SUMMARY"
+          fi
