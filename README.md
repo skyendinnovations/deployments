@@ -6,8 +6,8 @@ This repo is public on purpose: on GitHub's free plan only public repos get envi
 
 - Files are created by Terraform in the `platform` repo when an app is added. After that, this repo owns them.
 - Images are tagged with the app's release version, e.g. `.../menu/web:v1.4.0`. An app's CI sets it in every `dev.yaml` when its release PR is merged. Dev deploys straight away.
-- `promote` copies the dev version to `prod.yaml` and starts a deploy. Pick the app and service (or `all`) from the dropdowns; the lists come from `platform/apps.yaml` (the workflow is generated there, don't edit it here). Prod deploys wait for approval on the `prod` environment.
-- Any other change (memory, scaling, env vars) is a normal edit to the file. Merging it deploys it.
+- Prod only deploys from a manual run of `promote`. Pick the app and service (or `all`) from the dropdowns; the lists come from `platform/apps.yaml` (the workflow is generated there, don't edit it here). It copies the dev version to `prod.yaml` and deploys the chosen prod files, also when the version is unchanged. Prod runs wait for approval on the `prod` environment.
+- Any other change (memory, scaling, env vars, the deploy switch) is a normal edit to the file. Merging it deploys dev files right away; prod files go out on the next `promote`.
 - `metadata.labels.public: "true"` makes the service public (`allUsers` invoker).
 - Off switch: label `deploy: "false"` here, or `platform-deploy: "false"` (written by the platform from `apps.yaml`; don't edit it here). Either one deletes the Cloud Run service and its domain mapping; removing the label deploys it again.
 - If `BETTER_AUTH_URL` is a custom host (not `*.run.app`), deploy creates a Cloud Run domain mapping for it. The
