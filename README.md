@@ -9,6 +9,7 @@ This repo is public on purpose: on GitHub's free plan only public repos get envi
 - `promote` copies the dev version to `prod.yaml` and starts a deploy. Pick the app and service (or `all`) from the dropdowns; the lists come from `platform/apps.yaml` (the workflow is generated there, don't edit it here). Prod deploys wait for approval on the `prod` environment.
 - Any other change (memory, scaling, env vars) is a normal edit to the file. Merging it deploys it.
 - `metadata.labels.public: "true"` makes the service public (`allUsers` invoker).
+- Off switch: label `deploy: "false"` here, or `platform-deploy: "false"` (written by the platform from `apps.yaml`; don't edit it here). Either one deletes the Cloud Run service and its domain mapping; removing the label deploys it again.
 - If `BETTER_AUTH_URL` is a custom host (not `*.run.app`), deploy creates a Cloud Run domain mapping for it. The
   `deployer` service account must be an owner of the domain in Search Console, and the host needs a CNAME to
   `ghs.googlehosted.com.`
