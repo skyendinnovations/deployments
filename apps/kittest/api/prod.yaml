@@ -6,7 +6,9 @@ metadata:
     app: kittest
     service: api
     env: prod
-    public: "true"
+    public: "false"
+    platform-deploy: "false"
+    platform-access: "1d8e6415622a"
 spec:
   template:
     metadata:
@@ -50,3 +52,7 @@ spec:
                 secretKeyRef:
                   name: google-client-secret
                   key: latest
+            - name: INTERNAL_APP
+              value: kittest
+platform:
+  url: https://kittest-api-prod-648228298107.asia-southeast1.run.app

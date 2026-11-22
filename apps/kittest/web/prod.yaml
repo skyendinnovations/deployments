@@ -51,3 +51,5 @@ spec:
                 secretKeyRef:
                   name: google-client-secret
                   key: latest
+            - name: INTERNAL_KITTEST_API_URL
+              value: https://kittest-api-prod-648228298107.asia-southeast1.run.app
