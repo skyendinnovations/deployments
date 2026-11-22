@@ -18,7 +18,7 @@ spec:
       containerConcurrency: 80
       timeoutSeconds: 300
       containers:
-        - image: us-docker.pkg.dev/cloudrun/container/hello
+        - image: asia-southeast1-docker.pkg.dev/skyend-apps-2026/kittest/admin:v0.1.1
           ports:
             - containerPort: 8080
           resources:
