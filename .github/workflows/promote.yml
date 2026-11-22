@@ -16,7 +16,7 @@ on:
         type: choice
         required: true
         default: all
-        options: ["all","admin","web"]
+        options: ["all","admin","api","web"]
 
 jobs:
   promote:
