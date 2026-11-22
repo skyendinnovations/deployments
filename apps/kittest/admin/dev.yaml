@@ -7,7 +7,6 @@ metadata:
     service: admin
     env: dev
     public: "true"
-    platform-deploy: "false"
 spec:
   template:
     metadata:
