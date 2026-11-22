@@ -27,7 +27,7 @@ spec:
               memory: 512Mi
           env:
             - name: BETTER_AUTH_URL
-              value: https://kittest-admin-prod-648228298107.asia-southeast1.run.app
+              value: https://admin.kittest.pramothsgp.me
             - name: ADMIN_EMAILS
               value: "pramothsgp@gmail.com,skyendinnovations@gmail.com"
             - name: DATABASE_URL
