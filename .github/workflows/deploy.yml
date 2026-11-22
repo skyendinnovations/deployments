@@ -1,5 +1,7 @@
 name: deploy
 
+# Pushes deploy dev files only. Prod deploys only from a manual run: the promote workflow (which starts
+# this one with the prod files) or this workflow run by hand. Prod runs still wait for approval.
 on:
   push:
     branches: [main]
@@ -7,7 +9,7 @@ on:
   workflow_dispatch:
     inputs:
       files:
-        description: "Space-separated service files, e.g. apps/wildcard/game/prod.yaml"
+        description: "Space-separated service files, e.g. apps/menu/web/prod.yaml (usually started by promote)"
         required: true
 
 jobs:
@@ -32,6 +34,11 @@ jobs:
             files=$(git ls-files 'apps/*/*/*.yaml')
           else
             files=$(git diff --name-only --diff-filter=AM "$BEFORE" "$GITHUB_SHA" -- 'apps/*/*/*.yaml')
+          fi
+          if [ -z "$INPUT" ]; then
+            skipped=$(tr ' ' '\n' <<< "$files" | grep '/prod\.yaml$' || true)
+            [ -n "$skipped" ] && { echo "### Not deployed (prod deploys only via promote)"; sed 's/^/- /' <<< "$skipped"; } >> "$GITHUB_STEP_SUMMARY"
+            files=$(tr ' ' '\n' <<< "$files" | grep -v '/prod\.yaml$' || true)
           fi
           for f in $files; do
             [[ "$f" =~ ^apps/[a-z0-9-]+/[a-z0-9-]+/(dev|prod)\.yaml$ && -f "$f" ]] || { echo "::error::Bad path: $f"; exit 1; }
