@@ -8,6 +8,7 @@ metadata:
     env: dev
     public: "false"
     platform-access: "62133416ae52"
+    platform-deploy: "false"
 spec:
   template:
     metadata:
