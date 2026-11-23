@@ -10,13 +10,13 @@ on:
         description: "App to deploy to prod (with dev's version)"
         type: choice
         required: true
-        options: ["kittest"]
+        options: ["kittest","qros"]
       service:
         description: "Service (all = every service of the app)"
         type: choice
         required: true
         default: all
-        options: ["all","admin","api","web"]
+        options: ["all","admin","api","cinema","hotel","web"]
 
 jobs:
   promote:
