@@ -50,3 +50,5 @@ spec:
                 secretKeyRef:
                   name: google-client-secret
                   key: latest
+            - name: INTERNAL_QROS_API_URL
+              value: https://qros-api-dev-648228298107.asia-southeast1.run.app
