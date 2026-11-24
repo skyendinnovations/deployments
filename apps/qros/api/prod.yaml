@@ -51,6 +51,22 @@ spec:
                 secretKeyRef:
                   name: google-client-secret
                   key: latest
+            - name: STORAGE_PROVIDER
+              value: r2
+            - name: STORAGE_BUCKET
+              value: qros-prod
+            - name: R2_ACCOUNT_ID
+              value: d3582708044db4fef6455d53f1548c04
+            - name: STORAGE_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  key: latest
+                  name: qros-prod-storage-access-key-id
+            - name: STORAGE_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  key: latest
+                  name: qros-prod-storage-secret-access-key
             - name: INTERNAL_APP
               value: qros
 platform:
